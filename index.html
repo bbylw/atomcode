@@ -287,9 +287,10 @@
       <a href="#models">模型</a>
       <a href="#install">安装</a>
       <a href="#architecture">架构</a>
+      <a href="#codingplan">CodingPlan</a>
       <a href="#commands">命令</a>
     </div>
-    <a href="https://atomgit.com/atomgit_atomcode/atomcode" class="nav-cta" target="_blank" rel="noopener">查看源码</a>
+    <a href="https://atomcode.atomgit.com/" class="nav-cta" target="_blank" rel="noopener">官方网站 ↗</a>
   </div>
 </nav>
 
@@ -305,6 +306,7 @@
     </p>
     <div class="cta-row">
       <a href="#install" class="btn btn-primary">立即安装 →</a>
+      <a href="https://atomcode.atomgit.com/" target="_blank" rel="noopener" class="btn btn-secondary">🌐 访问官方网站</a>
       <a href="https://atomgit.com/atomgit_atomcode/atomcode" target="_blank" rel="noopener" class="btn btn-secondary">⭐ 在 AtomGit 上 Star</a>
     </div>
     <div class="meta-pills">
@@ -612,8 +614,71 @@ atomcode -p <span class="s">"简要说明这个仓库的 agent loop"</span></pre
   </div>
 </section>
 
+<!-- CodingPlan -->
+<section id="codingplan" style="background:var(--bg-2)">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">CodingPlan · Official Resources</div>
+      <h2>开箱即用的 AI 编码套餐</h2>
+      <p class="section-sub">无需自备 API Key,通过 AtomGit Serverless API 一键接入 CodingPlan,即刻开启 AI 编码体验。</p>
+    </div>
+
+    <div class="install-grid">
+      <div class="install-card" style="background:linear-gradient(135deg,rgba(255,122,69,.08),rgba(167,139,250,.08));border-color:rgba(255,122,69,.3)">
+        <h3>
+          <span style="font-size:24px">🌐</span>
+          官方网站
+        </h3>
+        <p style="color:var(--text-dim);font-size:14.5px;line-height:1.7;margin-bottom:18px">
+          访问 AtomCode 官方主页,获取最新版本、产品介绍、文档导航与社区入口。
+        </p>
+        <a href="https://atomcode.atomgit.com/" target="_blank" rel="noopener" class="btn btn-primary" style="font-size:14px;padding:11px 20px">
+          atomcode.atomgit.com →
+        </a>
+      </div>
+
+      <div class="install-card" style="background:linear-gradient(135deg,rgba(94,234,212,.08),rgba(167,139,250,.08));border-color:rgba(94,234,212,.3)">
+        <h3>
+          <span style="font-size:24px">⚡</span>
+          CodingPlan Serverless API
+        </h3>
+        <p style="color:var(--text-dim);font-size:14.5px;line-height:1.7;margin-bottom:18px">
+          AtomGit 官方提供的 Serverless 模型 API,免运维、按量计费,直接配置进 AtomCode 即可使用。
+        </p>
+        <a href="https://ai.atomgit.com/serverless-api" target="_blank" rel="noopener" class="btn btn-primary" style="font-size:14px;padding:11px 20px;background:var(--blue);color:#0a0e17">
+          ai.atomgit.com/serverless-api →
+        </a>
+      </div>
+    </div>
+
+    <div style="margin-top:32px">
+      <div class="install-card">
+        <h3 style="margin-bottom:14px">
+          <span class="step-num">📝</span>
+          快速接入示例
+        </h3>
+        <p style="color:var(--text-dim);font-size:14px;margin-bottom:16px">
+          在 <code>~/.atomcode/config.toml</code> 中配置 CodingPlan Serverless API,作为一个 OpenAI 兼容 provider:
+        </p>
+<pre class="code"><span class="c"># ~/.atomcode/config.toml</span>
+default_provider = <span class="s">"codingplan"</span>
+
+[providers.codingplan]
+type           = <span class="s">"openai"</span>
+api_key        = <span class="s">"your-atomgit-api-key"</span>     <span class="c"># 在 ai.atomgit.com 申请</span>
+model          = <span class="s">"your-model-name"</span>
+base_url       = <span class="s">"https://ai.atomgit.com/serverless-api/v1"</span>
+context_window = <span class="v">128000</span></pre>
+        <p style="color:var(--text-dim);font-size:13.5px;margin-top:14px">
+          也可以在 TUI 内通过 <code>/login</code> 使用 AtomGit OAuth 一键绑定账号,无需手动配置 API Key。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Slash commands -->
-<section id="commands" style="background:var(--bg-2)">
+<section id="commands">
   <div class="section-inner">
     <div class="section-head">
       <div class="eyebrow">Slash Commands</div>
@@ -659,6 +724,8 @@ atomcode -p <span class="s">"简要说明这个仓库的 agent loop"</span></pre
 
 <footer>
   <div style="margin-bottom:18px">
+    <a href="https://atomcode.atomgit.com/" target="_blank" rel="noopener">官方网站</a>·
+    <a href="https://ai.atomgit.com/serverless-api" target="_blank" rel="noopener">CodingPlan API</a>·
     <a href="https://atomgit.com/atomgit_atomcode/atomcode" target="_blank" rel="noopener">源码</a>·
     <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/docs/security/permission-model.md" target="_blank" rel="noopener">权限模型</a>·
     <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/docs/telemetry.md" target="_blank" rel="noopener">遥测说明</a>·
