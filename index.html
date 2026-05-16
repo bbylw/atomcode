@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AtomCode — 用 Rust 编写的开源终端 AI 编码助手</title>
+<meta name="description" content="AtomCode 是一款住在终端里的 AI 编码助手。用自然语言下达任务，自动阅读代码、编辑文件、执行命令、验证结果。">
+<style>
+  :root{
+    --bg:#0a0e17;
+    --bg-2:#0f1420;
+    --panel:#121826;
+    --panel-2:#1a2233;
+    --border:#1e2a40;
+    --text:#e6edf7;
+    --text-dim:#8b97ad;
+    --text-muted:#5a6478;
+    --accent:#ff7a45;
+    --accent-2:#ffb347;
+    --green:#5cdb95;
+    --blue:#5eead4;
+    --purple:#a78bfa;
+    --code-bg:#0d1119;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+    line-height:1.7;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  code,pre,.mono{font-family:"JetBrains Mono","Fira Code",Menlo,Consolas,monospace}
+
+  /* ---------- Nav ---------- */
+  nav{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(12px);
+    background:rgba(10,14,23,.75);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-inner{
+    max-width:1180px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;
+  }
+  .logo{
+    display:flex;align-items:center;gap:10px;
+    font-weight:700;font-size:18px;letter-spacing:.5px;
+  }
+  .logo-mark{
+    width:28px;height:28px;border-radius:8px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-size:14px;color:#0a0e17;font-weight:900;
+  }
+  .nav-links{display:flex;gap:26px;font-size:14px}
+  .nav-links a{color:var(--text-dim);text-decoration:none;transition:color .15s}
+  .nav-links a:hover{color:var(--text)}
+  .nav-cta{
+    padding:8px 16px;border-radius:8px;
+    background:var(--accent);color:#0a0e17;font-weight:600;font-size:14px;
+    text-decoration:none;transition:transform .15s,background .15s;
+  }
+  .nav-cta:hover{background:var(--accent-2);transform:translateY(-1px)}
+  @media (max-width:720px){.nav-links{display:none}}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;
+    padding:80px 28px 100px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(circle at 20% 10%,rgba(255,122,69,.15),transparent 40%),
+      radial-gradient(circle at 80% 30%,rgba(167,139,250,.12),transparent 45%),
+      radial-gradient(circle at 50% 80%,rgba(94,234,212,.08),transparent 50%);
+    pointer-events:none;
+  }
+  .hero-inner{position:relative;max-width:1080px;margin:0 auto}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 14px;border-radius:999px;
+    background:rgba(255,122,69,.1);border:1px solid rgba(255,122,69,.3);
+    color:var(--accent-2);font-size:13px;margin-bottom:24px;
+  }
+  .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  h1{
+    font-size:clamp(38px,6vw,68px);
+    font-weight:800;line-height:1.1;letter-spacing:-1px;
+    margin-bottom:20px;
+  }
+  h1 .grad{
+    background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 50%,var(--purple) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .subtitle{
+    font-size:clamp(16px,2vw,20px);
+    color:var(--text-dim);max-width:680px;margin:0 auto 36px;
+  }
+  .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:60px}
+  .btn{
+    padding:13px 26px;border-radius:10px;font-weight:600;font-size:15px;
+    text-decoration:none;transition:all .15s;display:inline-flex;align-items:center;gap:8px;
+  }
+  .btn-primary{background:var(--accent);color:#0a0e17}
+  .btn-primary:hover{background:var(--accent-2);transform:translateY(-2px);box-shadow:0 10px 30px -10px var(--accent)}
+  .btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-secondary:hover{background:var(--panel-2);border-color:var(--text-dim)}
+  .meta-pills{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--text-muted)}
+  .pill{padding:5px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--border)}
+
+  /* ---------- ASCII ---------- */
+  .ascii-wrap{
+    margin:50px auto 0;max-width:760px;
+    background:var(--code-bg);border:1px solid var(--border);
+    border-radius:12px;overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.5);
+  }
+  .term-bar{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 16px;background:var(--panel-2);border-bottom:1px solid var(--border);
+  }
+  .term-bar .dot{width:12px;height:12px;border-radius:50%}
+  .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:#28c840}
+  .term-title{margin-left:auto;font-size:12px;color:var(--text-muted)}
+  .ascii{
+    padding:24px;
+    color:var(--accent-2);
+    font-size:13px;line-height:1.4;text-align:left;
+    white-space:pre;overflow-x:auto;
+  }
+  .term-body{padding:16px 24px 24px;font-size:14px;text-align:left}
+  .term-line{margin-top:6px}
+  .prompt{color:var(--green)}
+  .cmd{color:var(--text)}
+  .out{color:var(--text-dim)}
+  .cursor{display:inline-block;width:8px;height:16px;background:var(--accent);vertical-align:middle;animation:blink 1s infinite}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+  /* ---------- Sections ---------- */
+  section{padding:90px 28px;position:relative}
+  .section-inner{max-width:1180px;margin:0 auto}
+  .section-head{text-align:center;margin-bottom:60px}
+  .eyebrow{
+    color:var(--accent);font-size:13px;font-weight:600;
+    text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;
+  }
+  h2{font-size:clamp(28px,4vw,42px);font-weight:700;letter-spacing:-.5px;margin-bottom:14px}
+  .section-sub{color:var(--text-dim);font-size:17px;max-width:640px;margin:0 auto}
+
+  /* ---------- Features grid ---------- */
+  .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+  .feature{
+    padding:28px;border-radius:14px;
+    background:var(--panel);border:1px solid var(--border);
+    transition:transform .2s,border-color .2s,background .2s;
+  }
+  .feature:hover{transform:translateY(-4px);border-color:rgba(255,122,69,.4);background:var(--panel-2)}
+  .feature-ico{
+    width:44px;height:44px;border-radius:10px;
+    background:linear-gradient(135deg,rgba(255,122,69,.15),rgba(167,139,250,.15));
+    display:grid;place-items:center;font-size:22px;margin-bottom:18px;
+  }
+  .feature h3{font-size:18px;font-weight:600;margin-bottom:10px}
+  .feature p{color:var(--text-dim);font-size:14.5px;line-height:1.65}
+
+  /* ---------- Tools list ---------- */
+  .tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+  .tool-card{
+    padding:26px;border-radius:14px;
+    background:var(--panel);border:1px solid var(--border);
+  }
+  .tool-card h3{font-size:17px;font-weight:600;margin-bottom:16px;color:var(--accent-2)}
+  .tool-tags{display:flex;flex-wrap:wrap;gap:8px}
+  .tool-tag{
+    padding:5px 11px;border-radius:6px;font-size:12.5px;
+    background:var(--bg-2);border:1px solid var(--border);
+    color:var(--text);
+  }
+  .tool-tag.mono{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--blue)}
+
+  /* ---------- Models table ---------- */
+  .table-wrap{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  }
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th,td{padding:14px 20px;text-align:left;border-bottom:1px solid var(--border)}
+  th{background:var(--panel-2);color:var(--text-dim);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,122,69,.04)}
+  .check{color:var(--green);font-weight:700}
+  .partial{color:var(--accent-2)}
+
+  /* ---------- Install ---------- */
+  .install-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  @media(max-width:820px){.install-grid{grid-template-columns:1fr}}
+  .install-card{
+    padding:30px;border-radius:14px;
+    background:var(--panel);border:1px solid var(--border);
+  }
+  .install-card h3{font-size:20px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .step-num{
+    display:inline-grid;place-items:center;
+    width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#0a0e17;font-size:13px;font-weight:700;
+  }
+  pre.code{
+    background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
+    padding:18px;overflow-x:auto;font-size:13.5px;line-height:1.65;
+    color:var(--text);
+  }
+  .code .c{color:var(--text-muted)}    /* comment */
+  .code .k{color:var(--accent-2)}      /* keyword */
+  .code .s{color:var(--green)}         /* string */
+  .code .v{color:var(--blue)}          /* variable */
+
+  /* ---------- Architecture ---------- */
+  .arch-wrap{
+    background:var(--code-bg);border:1px solid var(--border);
+    border-radius:14px;padding:28px;overflow-x:auto;
+    font-size:13px;line-height:1.7;color:var(--text-dim);
+  }
+  .arch-wrap .crate{color:var(--accent-2);font-weight:600}
+  .arch-wrap .cmt{color:var(--text-muted)}
+
+  .principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:36px}
+  .principle{padding:22px;border-radius:12px;background:var(--panel);border:1px solid var(--border)}
+  .principle .num{font-size:28px;font-weight:800;color:var(--accent);line-height:1}
+  .principle h4{font-size:16px;margin:10px 0 8px}
+  .principle p{font-size:13.5px;color:var(--text-dim)}
+
+  /* ---------- Commands ---------- */
+  .cmd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .cmd-row{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 16px;border-radius:8px;
+    background:var(--panel);border:1px solid var(--border);
+  }
+  .cmd-name{
+    font-family:"JetBrains Mono",monospace;font-size:13px;
+    color:var(--accent-2);font-weight:600;min-width:100px;
+  }
+  .cmd-desc{font-size:13.5px;color:var(--text-dim)}
+
+  /* ---------- Footer ---------- */
+  footer{
+    border-top:1px solid var(--border);
+    padding:50px 28px 30px;text-align:center;
+    color:var(--text-muted);font-size:14px;
+  }
+  footer a{color:var(--text-dim);text-decoration:none;margin:0 10px}
+  footer a:hover{color:var(--accent-2)}
+  .heart{color:var(--accent)}
+
+  /* ---------- AI banner ---------- */
+  .ai-banner{
+    max-width:1180px;margin:0 auto;
+    padding:24px 28px;
+    background:linear-gradient(90deg,rgba(255,122,69,.08),rgba(167,139,250,.08));
+    border:1px solid rgba(255,122,69,.25);
+    border-radius:14px;
+    display:flex;align-items:center;gap:18px;
+    margin-top:20px;margin-bottom:-30px;
+  }
+  .ai-banner-ico{font-size:32px;flex-shrink:0}
+  .ai-banner p{color:var(--text);font-size:15px}
+  .ai-banner strong{color:var(--accent-2)}
+  @media(max-width:600px){.ai-banner{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="logo">
+      <span class="logo-mark">A</span>
+      <span>AtomCode</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#models">模型</a>
+      <a href="#install">安装</a>
+      <a href="#architecture">架构</a>
+      <a href="#commands">命令</a>
+    </div>
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode" class="nav-cta" target="_blank" rel="noopener">查看源码</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      <span>v4.18.1 · Rust 1.88+ · MIT License</span>
+    </div>
+    <h1>住在终端里的<br><span class="grad">AI 编码助手</span></h1>
+    <p class="subtitle">
+      用自然语言下达任务,AtomCode 会自动阅读代码、编辑文件、执行命令、验证结果——全程自主完成。Claude Code / Cursor Agent 的开源替代品,完全运行在你的终端里。
+    </p>
+    <div class="cta-row">
+      <a href="#install" class="btn btn-primary">立即安装 →</a>
+      <a href="https://atomgit.com/atomgit_atomcode/atomcode" target="_blank" rel="noopener" class="btn btn-secondary">⭐ 在 AtomGit 上 Star</a>
+    </div>
+    <div class="meta-pills">
+      <span class="pill">macOS</span>
+      <span class="pill">Linux</span>
+      <span class="pill">HarmonyOS PC</span>
+      <span class="pill">Windows</span>
+    </div>
+
+    <div class="ascii-wrap">
+      <div class="term-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span class="term-title">~/your-project — atomcode</span>
+      </div>
+      <pre class="ascii">      _   _                  ____          _
+     / \ | |_ ___  _ __ ___ / ___|___   __| | ___
+    / _ \| __/ _ \| '_ ` _ \ |   / _ \ / _` |/ _ \
+   / ___ \ || (_) | | | | | | |__| (_) | (_| |  __/
+  /_/   \_\__\___/|_| |_| |_|\____\___/ \__,_|\___|</pre>
+      <div class="term-body">
+        <div class="term-line"><span class="prompt">❯</span> <span class="cmd">修复 OAuth 回调后用户被重定向到 404 的登录 bug</span></div>
+        <div class="term-line out">  ✔ 读取 src/auth/oauth.rs · 找到回调处理</div>
+        <div class="term-line out">  ✔ 编辑 src/router.rs · 修正重定向路径</div>
+        <div class="term-line out">  ✔ 运行 cargo test · 全部通过</div>
+        <div class="term-line"><span class="prompt">❯</span> <span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="ai-banner">
+  <div class="ai-banner-ico">🤖</div>
+  <p><strong>本项目 100% 由 AI 生成。</strong> 每一行代码、每一个架构决策的实现、每一次提交都由 AI 完成。人类开发者仅担任决策者和产品经理的角色——定义"要做什么",而不是"怎么做"。</p>
+</div>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Features</div>
+      <h2>为真实的工程任务而设计</h2>
+      <p class="section-sub">从自主多步执行到上下文感知,AtomCode 把 Agent 循环、内置工具、安全模型整合成一个流畅的终端体验。</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-ico">🔄</div>
+        <h3>自主 Agent 循环</h3>
+        <p>读文件、改代码、跑测试、修错误,循环直到完成。每次编辑后自动跑语法检查,确认无误才算完成。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">📊</div>
+        <h3>动态步数预算</h3>
+        <p>根据编辑文件数动态放宽步数上限,同时封顶以控成本。识别并打破重复调用同一工具的死循环。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">🛠️</div>
+        <h3>三层 JSON 修复</h3>
+        <p>自动修复畸形工具调用参数,降低模型不稳定输出对任务的影响。Turn 级 datalog 便于回放、调试和评测。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">💾</div>
+        <h3>持久化会话</h3>
+        <p>每次对话都会保存。命令行 <code>atomcode -c</code> 继续上一次会话,TUI 内 <code>/resume</code> 恢复或切换。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">⚡</div>
+        <h3>Headless 模式</h3>
+        <p><code>atomcode -p "..."</code> 非交互式跑一条 prompt,结果直接输出到 stdout——可嵌入 CI、脚本、自动化流程。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">🌐</div>
+        <h3>Daemon HTTP API</h3>
+        <p><code>atomcode-daemon</code> 提供 HTTP API,用于查询会话历史和 SSE 流式对话,核心库与 TUI 完全解耦。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">🎨</div>
+        <h3>实时流式 TUI</h3>
+        <p>Markdown 渲染 + 语法高亮、行号代码块、多行输入、文本选择、bracketed paste、任务完成原生通知。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">🛡️</div>
+        <h3>分层安全模型</h3>
+        <p>破坏性命令需显式确认。按路径、按风险等级请求确认,敏感文件 / 凭证目录 / shell 配置 / .env 触发更强规则。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ico">↩️</div>
+        <h3>一键撤销</h3>
+        <p><code>/undo</code> 通过文件历史快照回滚上一轮的所有文件编辑——大胆让 AI 改代码,反悔随时回退。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Built-in tools -->
+<section style="background:var(--bg-2)">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Built-in Tools</div>
+      <h2>内置工具集</h2>
+      <p class="section-sub">从文件操作到代码图谱、从 Shell 到自动修复,AtomCode 提供覆盖完整工程工作流的原生工具。</p>
+    </div>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <h3>📁 文件与 Shell</h3>
+        <div class="tool-tags">
+          <span class="tool-tag mono">read_file</span>
+          <span class="tool-tag mono">write_file</span>
+          <span class="tool-tag mono">edit_file</span>
+          <span class="tool-tag mono">search_replace</span>
+          <span class="tool-tag mono">bash</span>
+          <span class="tool-tag mono">grep</span>
+          <span class="tool-tag mono">glob</span>
+          <span class="tool-tag mono">list_directory</span>
+          <span class="tool-tag mono">change_dir</span>
+          <span class="tool-tag mono">web_search</span>
+          <span class="tool-tag mono">web_fetch</span>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h3>🧠 代码图谱</h3>
+        <div class="tool-tags">
+          <span class="tool-tag mono">list_symbols</span>
+          <span class="tool-tag mono">read_symbol</span>
+          <span class="tool-tag mono">find_references</span>
+          <span class="tool-tag mono">trace_callers</span>
+          <span class="tool-tag mono">trace_callees</span>
+          <span class="tool-tag mono">trace_chain</span>
+          <span class="tool-tag mono">file_deps</span>
+          <span class="tool-tag mono">blast_radius</span>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h3>🤖 自动化</h3>
+        <div class="tool-tags">
+          <span class="tool-tag mono">auto_fix</span>
+          <span class="tool-tag mono">use_skill</span>
+        </div>
+        <p style="color:var(--text-dim);font-size:13.5px;margin-top:14px;line-height:1.6">
+          <code>auto_fix</code> 自动 lint / 类型检查修复循环;<code>use_skill</code> 调用用户自定义 skill。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Models -->
+<section id="models">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Multi-Model Support</div>
+      <h2>支持任何兼容 OpenAI 的模型</h2>
+      <p class="section-sub">只要实现了 OpenAI function calling 接口,就能接入。从云厂商到本地 Ollama,自由切换。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>提供方</th>
+            <th style="text-align:center">Function Calling</th>
+            <th>已验证模型</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Claude(Anthropic)</td><td style="text-align:center"><span class="check">✓</span></td><td>Claude Sonnet 4.5/4.6、Opus 4.6</td></tr>
+          <tr><td>OpenAI</td><td style="text-align:center"><span class="check">✓</span></td><td>GPT-4o、GPT-4.1</td></tr>
+          <tr><td>DeepSeek</td><td style="text-align:center"><span class="check">✓</span></td><td>DeepSeek V3、DeepSeek R1</td></tr>
+          <tr><td>智谱(GLM)</td><td style="text-align:center"><span class="check">✓</span></td><td>GLM-4、GLM-5</td></tr>
+          <tr><td>通义千问(阿里)</td><td style="text-align:center"><span class="check">✓</span></td><td>Qwen-Plus、Qwen-Max</td></tr>
+          <tr><td>SiliconFlow</td><td style="text-align:center"><span class="check">✓</span></td><td>多种开源模型</td></tr>
+          <tr><td>Ollama(本地)</td><td style="text-align:center"><span class="partial">◐</span></td><td>Llama 3、Qwen2 等</td></tr>
+          <tr><td>任意 OpenAI 兼容接口</td><td style="text-align:center"><span class="check">✓</span></td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section id="install" style="background:var(--bg-2)">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Get Started</div>
+      <h2>三步开始使用</h2>
+      <p class="section-sub">从源码构建到首次配置,5 分钟内即可在终端里和 AI 协作。</p>
+    </div>
+
+    <div class="install-grid">
+      <div class="install-card">
+        <h3><span class="step-num">1</span> 从源码构建</h3>
+<pre class="code"><span class="c"># 克隆仓库</span>
+git clone https://atomgit.com/atomgit_atomcode/atomcode.git
+<span class="k">cd</span> atomcode
+
+<span class="c"># 编译并安装到 ~/.cargo/bin</span>
+cargo install --path crates/atomcode-cli --locked
+
+<span class="c"># 或仅编译,不安装</span>
+cargo build --release</pre>
+        <p style="color:var(--text-dim);font-size:13.5px;margin-top:14px">
+          需要 <strong>Rust 1.88+</strong>。产物位于 <code>target/release/atomcode</code>。
+        </p>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="step-num">2</span> 配置模型</h3>
+<pre class="code"><span class="c"># ~/.atomcode/config.toml</span>
+default_provider = <span class="s">"deepseek"</span>
+
+[providers.deepseek]
+type           = <span class="s">"openai"</span>
+api_key        = <span class="s">"sk-..."</span>
+model          = <span class="s">"deepseek-chat"</span>
+base_url       = <span class="s">"https://api.deepseek.com/v1"</span>
+context_window = <span class="v">64000</span></pre>
+        <p style="color:var(--text-dim);font-size:13.5px;margin-top:14px">
+          首次运行会有向导引导配置,改完用 <code>/reload</code> 热加载。
+        </p>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="step-num">3</span> 开始编码</h3>
+<pre class="code"><span class="c"># 在项目目录下启动</span>
+<span class="k">cd</span> your-project
+atomcode
+
+<span class="c"># 或指定目录、模型</span>
+atomcode -C /path/to/project
+atomcode --model gpt-4o
+
+<span class="c"># Headless 模式</span>
+atomcode -p <span class="s">"简要说明这个仓库的 agent loop"</span></pre>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="step-num">4</span> 让 AI 干活</h3>
+<pre class="code"><span class="c"># 直接用自然语言描述</span>
+<span class="prompt" style="color:var(--green)">❯</span> 修复 OAuth 回调后被重定向到 404 的 bug
+
+<span class="prompt" style="color:var(--green)">❯</span> 给设置页加一个深色模式切换
+
+<span class="prompt" style="color:var(--green)">❯</span> 把数据库模块重构为使用连接池</pre>
+        <p style="color:var(--text-dim);font-size:13.5px;margin-top:14px">
+          AtomCode 自主完成读代码、改文件、跑测试的全过程。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture -->
+<section id="architecture">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Architecture</div>
+      <h2>四个 Crate 的 Rust Workspace</h2>
+      <p class="section-sub">无头核心库 + TUI + CLI + Daemon,清晰的分层让核心逻辑可以独立运行在任意场景。</p>
+    </div>
+    <pre class="arch-wrap">atomcode/
+  crates/
+    <span class="crate">atomcode-core/</span>     <span class="cmt"># 无头核心库,不依赖 TUI</span>
+      agent/           <span class="cmt"># AgentLoop:自主工具调用循环</span>
+      turn/            <span class="cmt"># TurnRunner、datalog、权限决策器</span>
+      config/          <span class="cmt"># 配置加载、provider 配置</span>
+      conversation/    <span class="cmt"># 消息类型、窗口化上下文</span>
+      provider/        <span class="cmt"># LlmProvider trait + OpenAI/Claude/Ollama</span>
+      tool/            <span class="cmt"># Tool trait + 内置工具实现</span>
+      session/         <span class="cmt"># 持久化会话</span>
+      skill.rs         <span class="cmt"># 用户自定义 skill</span>
+
+    <span class="crate">atomcode-tuix/</span>     <span class="cmt"># 终端 UI — retained-mode 渲染器</span>
+      event_loop/      <span class="cmt"># App 状态机、命令分发</span>
+      render/          <span class="cmt"># cell-level 渲染器、diff、帧循环</span>
+      modals/          <span class="cmt"># 各种 picker(dir、model、session...)</span>
+
+    <span class="crate">atomcode-cli/</span>      <span class="cmt"># 可执行入口(TUI + headless -p 模式)</span>
+      main.rs          <span class="cmt"># CLI 参数、首次运行向导、启动</span>
+      auth/            <span class="cmt"># AtomGit OAuth 客户端</span>
+
+    <span class="crate">atomcode-daemon/</span>   <span class="cmt"># 基于 atomcode-core 的 HTTP/SSE API 服务</span></pre>
+
+    <div class="principles">
+      <div class="principle">
+        <div class="num">01</div>
+        <h4>技术栈无关</h4>
+        <p>核心引擎不硬编码任何特定语言逻辑,通过 <code>package.json</code>、<code>Cargo.toml</code>、<code>pyproject.toml</code> 等描述文件动态探测项目类型。</p>
+      </div>
+      <div class="principle">
+        <div class="num">02</div>
+        <h4>Agent 解耦</h4>
+        <p>AgentLoop 作为独立异步任务运行,通过 channel 与 TUI 通信。核心库完全不依赖 TUI——这正是 daemon 得以存在的基础。</p>
+      </div>
+      <div class="principle">
+        <div class="num">03</div>
+        <h4>工具安全</h4>
+        <p>所有破坏性操作必须经用户显式确认。工具失败会作为 observation 返回给模型,绝不 panic。</p>
+      </div>
+      <div class="principle">
+        <div class="num">04</div>
+        <h4>上下文感知</h4>
+        <p>token 预算感知的会话窗口、项目文件树注入、每轮系统提醒,在不超出上下文限制的同时让模型保持专注。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Slash commands -->
+<section id="commands" style="background:var(--bg-2)">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Slash Commands</div>
+      <h2>常用斜杠命令</h2>
+      <p class="section-sub">在 TUI 中输入 <code>/</code> 触发命令面板,这里是最常用的几条。</p>
+    </div>
+    <div class="cmd-grid">
+      <div class="cmd-row"><span class="cmd-name">/resume</span><span class="cmd-desc">恢复或切换会话</span></div>
+      <div class="cmd-row"><span class="cmd-name">/session</span><span class="cmd-desc">创建新会话</span></div>
+      <div class="cmd-row"><span class="cmd-name">/model</span><span class="cmd-desc">切换模型 / provider</span></div>
+      <div class="cmd-row"><span class="cmd-name">/provider</span><span class="cmd-desc">管理 provider</span></div>
+      <div class="cmd-row"><span class="cmd-name">/login</span><span class="cmd-desc">通过 AtomGit OAuth 登录</span></div>
+      <div class="cmd-row"><span class="cmd-name">/cd</span><span class="cmd-desc">切换工作目录</span></div>
+      <div class="cmd-row"><span class="cmd-name">/paste</span><span class="cmd-desc">从剪贴板粘贴图片</span></div>
+      <div class="cmd-row"><span class="cmd-name">/undo</span><span class="cmd-desc">撤销上一轮的文件编辑</span></div>
+      <div class="cmd-row"><span class="cmd-name">/diff</span><span class="cmd-desc">显示当前修改的 git diff</span></div>
+      <div class="cmd-row"><span class="cmd-name">/cost</span><span class="cmd-desc">显示本次会话的 token 消耗</span></div>
+      <div class="cmd-row"><span class="cmd-name">/copy</span><span class="cmd-desc">复制 AI 的最后一条回复</span></div>
+      <div class="cmd-row"><span class="cmd-name">/clear</span><span class="cmd-desc">清空对话</span></div>
+      <div class="cmd-row"><span class="cmd-name">/issue</span><span class="cmd-desc">在 AtomGit 上创建 issue</span></div>
+      <div class="cmd-row"><span class="cmd-name">/config</span><span class="cmd-desc">编辑配置文件</span></div>
+      <div class="cmd-row"><span class="cmd-name">/status</span><span class="cmd-desc">查看登录状态和模型信息</span></div>
+      <div class="cmd-row"><span class="cmd-name">/help</span><span class="cmd-desc">查看命令与快捷键</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="text-align:center;padding:100px 28px">
+  <div class="section-inner" style="max-width:760px">
+    <h2 style="font-size:clamp(32px,5vw,48px);margin-bottom:20px">
+      准备好让 AI 接管<br>你的<span class="grad" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent">终端工作流</span>了吗?
+    </h2>
+    <p class="section-sub" style="margin-bottom:36px">
+      开源、MIT 许可、运行在终端、支持任意兼容 OpenAI 的模型。立即在 AtomGit 上 Star,加入社区。
+    </p>
+    <div class="cta-row" style="margin-bottom:0">
+      <a href="https://atomgit.com/atomgit_atomcode/atomcode" target="_blank" rel="noopener" class="btn btn-primary">⭐ 在 AtomGit 上 Star</a>
+      <a href="https://atomgit.com/atomgit_atomcode/atomcode/issues" target="_blank" rel="noopener" class="btn btn-secondary">报告问题 / 提建议</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div style="margin-bottom:18px">
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode" target="_blank" rel="noopener">源码</a>·
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/docs/security/permission-model.md" target="_blank" rel="noopener">权限模型</a>·
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/docs/telemetry.md" target="_blank" rel="noopener">遥测说明</a>·
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/LICENSE" target="_blank" rel="noopener">MIT 许可证</a>·
+    <a href="https://atomgit.com/atomgit_atomcode/atomcode/blob/main/README.md" target="_blank" rel="noopener">English</a>
+  </div>
+  <div>用 Rust、ratatui 以及无数个深夜构建而成 <span class="heart">♥</span></div>
+  <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">© AtomCode · 本项目 100% 由 AI 生成</div>
+</footer>
+
+</body>
+</html>
